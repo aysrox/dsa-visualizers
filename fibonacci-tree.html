@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Fibonacci call tree — recursion, visualized</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0c0d11; --card:#101117; --line:rgba(255,255,255,.08);
+    --ink:#e7e9ee; --dim:#828593; --cyan:#37e0ff; --lime:#c6ff4d; --pink:#fb5b86; --green:#34d399;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);min-height:100vh;
+    font-family:"JetBrains Mono",ui-monospace,Menlo,monospace;
+    -webkit-font-smoothing:antialiased;padding:22px clamp(14px,3vw,40px) 46px}
+  .wrap{max-width:1100px;margin:0 auto}
+  .tag{font-size:11px;color:var(--dim);letter-spacing:.18em;text-transform:uppercase}
+  h1{font-size:clamp(20px,3.6vw,30px);font-weight:700;margin:6px 0 8px;letter-spacing:-.01em}
+  .restate{font-size:13px;color:#c2c5cf;line-height:1.7;max-width:700px}
+  .restate code{color:var(--cyan);background:rgba(55,224,255,.08);padding:1px 6px;border-radius:4px}
+
+  .main{display:grid;grid-template-columns:300px 1fr;gap:18px;margin-top:22px}
+  @media(max-width:860px){ .main{grid-template-columns:1fr} }
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .card h2{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);font-weight:500;margin-bottom:14px}
+  .col{display:flex;flex-direction:column;gap:16px}
+
+  .nrow{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--dim);margin-bottom:16px}
+  .stepper{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-left:auto}
+  .stepper button{background:#171922;border:none;color:var(--ink);width:30px;height:30px;font-size:15px;cursor:pointer;font-family:inherit}
+  .stepper button:hover{background:#222637}
+  .stepper span{min-width:38px;text-align:center;font-weight:700;line-height:30px}
+  .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-bottom:14px}
+  .seg button{flex:1;background:#13151d;border:none;color:var(--dim);font-family:inherit;font-size:12px;font-weight:700;padding:10px;cursor:pointer}
+  .seg button.on{background:var(--cyan);color:#06121a}
+  .opt{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--dim);margin:12px 0;cursor:pointer}
+  .opt input{accent-color:var(--cyan);width:15px;height:15px}
+  .spd{display:flex;align-items:center;gap:9px;font-size:11px;color:var(--dim);margin-top:6px}
+  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:2px;background:var(--line);border-radius:2px;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--cyan);cursor:pointer;box-shadow:0 0 0 4px rgba(55,224,255,.14)}
+  input[type=range]::-moz-range-thumb{width:12px;height:12px;border:none;border-radius:50%;background:var(--cyan);cursor:pointer}
+  .replay{margin-top:14px;width:100%;font-family:inherit;font-size:12px;font-weight:700;color:#06121a;background:var(--lime);border:none;border-radius:8px;padding:10px;cursor:pointer}
+  .replay:hover{filter:brightness(1.06)}
+
+  /* stats */
+  .stat{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;color:var(--dim);margin:9px 0}
+  .stat b{font-size:20px;font-weight:700;color:var(--ink)}
+  .stat.naive b{color:var(--pink)} .stat.memo b{color:var(--green)}
+  .punch{font-size:12px;color:#c2c5cf;line-height:1.7;margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
+  .punch b{color:var(--lime)}
+
+  .legend{display:flex;flex-wrap:wrap;gap:9px;margin-top:4px}
+  .legend span{font-size:11px;color:var(--dim);display:flex;align-items:center;gap:5px}
+  .legend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+  svg{width:100%;height:auto;max-height:62vh;display:block;background:#090a0e;border-radius:10px}
+  .cap{font-size:12px;color:var(--dim);text-align:center;margin-top:11px;line-height:1.7}
+  .cap b{color:var(--cyan);font-weight:500}
+  .live{font-size:12px;color:var(--dim);text-align:center;margin-top:6px}
+  .live b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="tag">Understand recursion · classic interview warm-up</div>
+  <h1>The Fibonacci call tree</h1>
+  <p class="restate">The rule looks harmless: <code>fib(n) = fib(n-1) + fib(n-2)</code>.
+     But every call splits into two more calls… which split into two more. Here's what that
+     actually looks like — and why one small change makes it collapse.</p>
+
+  <div class="main">
+    <!-- LEFT -->
+    <div class="col">
+      <div class="card">
+        <h2>Controls</h2>
+        <div class="nrow">compute fib(<b id="nVal" style="color:var(--cyan)">5</b>)
+          <div class="stepper"><button id="nMinus">–</button><span id="nSpan">5</span><button id="nPlus">+</button></div>
+        </div>
+        <div class="seg">
+          <button id="mNaive" class="on">Naive</button>
+          <button id="mMemo">Memoized</button>
+        </div>
+        <label class="opt"><input type="checkbox" id="dup" checked> color duplicate subproblems</label>
+        <div class="spd"><span>slow</span><input id="speed" type="range" min="1" max="12" step="1" value="5"><span>fast</span></div>
+        <button class="replay" id="replay">↻ replay</button>
+      </div>
+
+      <div class="card">
+        <h2>The cost</h2>
+        <div class="stat naive"><span>calls — naive</span><b id="cNaive">0</b></div>
+        <div class="stat memo"><span>calls — memoized</span><b id="cMemo">0</b></div>
+        <div class="stat"><span>unique subproblems</span><b id="cUniq">0</b></div>
+        <div class="punch" id="punch"></div>
+      </div>
+
+      <div class="card" id="legendCard">
+        <h2>Same color = same subproblem</h2>
+        <div class="legend" id="legend"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="card">
+      <h2>The calls, as they actually happen</h2>
+      <svg id="tree" viewBox="0 0 800 480" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="live" id="live"></div>
+      <p class="cap" id="cap"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+const SVGNS='http://www.w3.org/2000/svg';
+const NODE=palette();
+function palette(){ return ['#37e0ff','#c6ff4d','#fb5b86','#ffb454','#a78bfa','#34d399','#f472b6','#60a5fa','#fbbf24']; }
+
+const state={ n:5, mode:'naive', dup:true };
+
+// ---------- build trees ----------
+function buildNaive(n){
+  let id=0;
+  function rec(k,depth,parent){
+    const node={id:id++,k,depth,parent,children:[],value:null,memoHit:false};
+    if(k>1){ node.children.push(rec(k-1,depth+1,node)); node.children.push(rec(k-2,depth+1,node));
+      node.value=node.children[0].value+node.children[1].value; }
+    else node.value=k;
+    return node;
+  }
+  const root=rec(n,0,null); return {root,count:id};
+}
+function buildMemo(n){
+  let id=0; const cache={};
+  function rec(k,depth,parent){
+    const node={id:id++,k,depth,parent,children:[],value:null,memoHit:false};
+    if(k in cache){ node.memoHit=true; node.value=cache[k]; return node; }
+    if(k<=1){ node.value=k; cache[k]=k; return node; }
+    node.children.push(rec(k-1,depth+1,node)); node.children.push(rec(k-2,depth+1,node));
+    node.value=node.children[0].value+node.children[1].value; cache[k]=node.value;
+    return node;
+  }
+  const root=rec(n,0,null); return {root,count:id};
+}
+
+// ---------- layout + events ----------
+const SX=66, SY=92, R=21, PAD=40;
+function layout(root){
+  let leaf=0;
+  (function assign(nd){
+    if(nd.children.length===0) nd.ux=leaf++;
+    else { nd.children.forEach(assign); nd.ux=(nd.children[0].ux+nd.children[nd.children.length-1].ux)/2; }
+  })(root);
+  let minX=1e9,maxX=-1e9,maxD=0;
+  walk(root,nd=>{ nd.px=nd.ux*SX; nd.py=nd.depth*SY+R+10;
+    minX=Math.min(minX,nd.px); maxX=Math.max(maxX,nd.px); maxD=Math.max(maxD,nd.py); });
+  return {minX:minX-PAD,minY:0,w:(maxX-minX)+2*PAD,h:maxD+PAD};
+}
+function walk(nd,fn){ fn(nd); nd.children.forEach(c=>walk(c,fn)); }
+function buildEvents(root){
+  const ev=[];
+  (function dfs(nd){ nd.enterIdx=ev.length; ev.push({t:'enter',nd});
+    nd.children.forEach(dfs);
+    nd.exitIdx=ev.length; ev.push({t:'exit',nd}); })(root);
+  return ev;
+}
+
+// ---------- state of current animation ----------
+let cur=null;   // {root, count, events, box, head, done, countByK}
+function rebuild(){
+  const built = state.mode==='memo' ? buildMemo(state.n) : buildNaive(state.n);
+  const box = layout(built.root);
+  const events = buildEvents(built.root);
+  const countByK={};
+  walk(built.root, nd=>{ countByK[nd.k]=(countByK[nd.k]||0)+1; });
+  cur={ ...built, events, box, headF:0, done:false, countByK };
+  document.getElementById('tree').setAttribute('viewBox',
+    `${box.minX} ${box.minY} ${box.w} ${box.h}`);
+  updateStats();
+  renderLegend();
+  setCaption();
+}
+
+// ---------- stats (always compute both) ----------
+function updateStats(){
+  const naive=buildNaive(state.n).count;
+  const memo =buildMemo(state.n).count;
+  document.getElementById('cNaive').textContent=naive;
+  document.getElementById('cMemo').textContent=memo;
+  document.getElementById('cUniq').textContent=state.n+1;
+  const factor=(naive/memo).toFixed(1);
+  document.getElementById('punch').innerHTML=
+    `For fib(${state.n}), naive recursion makes <b>${naive}</b> calls; memoization needs just <b>${memo}</b> — about <b>${factor}× less work</b>. As n grows, naive blows up like <b>2ⁿ</b> while memoized stays near <b>n</b>.`;
+}
+
+function renderLegend(){
+  const card=document.getElementById('legendCard');
+  const wrap=document.getElementById('legend');
+  if(state.mode!=='naive' || !state.dup){ card.style.display='none'; return; }
+  card.style.display='';
+  wrap.innerHTML='';
+  Object.keys(cur.countByK).map(Number).sort((a,b)=>a-b).forEach(k=>{
+    const s=document.createElement('span');
+    s.innerHTML=`<i style="background:${NODE[k%NODE.length]}"></i>fib(${k}) ×${cur.countByK[k]}`;
+    wrap.appendChild(s);
+  });
+}
+
+function setCaption(){
+  const cap=document.getElementById('cap');
+  if(state.mode==='memo')
+    cap.innerHTML=`First time we compute fib(k) we <b>store it</b>. Asked again, it returns the saved answer instantly — <b>cached</b> nodes (grey) never expand.`;
+  else
+    cap.innerHTML=`Nothing is remembered. The <b>same subproblems</b> get recomputed again and again — that's the exponential blow-up.`;
+}
+
+// ---------- render ----------
+const svg=document.getElementById('tree');
+function el(t,a){ const e=document.createElementNS(SVGNS,t); for(const k in a) e.setAttribute(k,a[k]); return e; }
+function colorOf(nd){
+  if(nd.memoHit) return '#3a4150';
+  if(state.mode==='naive' && state.dup) return NODE[nd.k%NODE.length];
+  return NODE[0];
+}
+function render(now){
+  const {events,root}=cur;
+  const total=events.length;
+  const head=Math.floor(cur.headF);
+  const frac=cur.headF-head;
+  const inEvent = head<total ? events[head] : null;
+
+  const settledEnter = nd=> nd.enterIdx < head;
+  const exited       = nd=> nd.exitIdx < head;
+  const showVal      = nd=> exited(nd) || (inEvent && inEvent.t==='exit' && inEvent.nd===nd && frac>0.4);
+  const open         = nd=> settledEnter(nd) && !exited(nd);   // nodes on the live call stack
+
+  // active = deepest node on the call stack (the call we're inside right now)
+  let active=null, md=-1;
+  walk(root,nd=>{ if(open(nd)&&nd.depth>md){ md=nd.depth; active=nd; } });
+
+  svg.innerHTML='';
+
+  // 1) settled branches (glow the ones on the current call stack)
+  walk(root,nd=>{
+    nd.children.forEach(ch=>{
+      if(settledEnter(ch)){
+        const onStack = open(nd)&&open(ch);
+        svg.appendChild(el('line',{x1:nd.px,y1:nd.py,x2:ch.px,y2:ch.py,
+          stroke: onStack?'rgba(55,224,255,.55)':'rgba(255,255,255,.12)',
+          'stroke-width': onStack?2.2:1.4}));
+      }
+    });
+  });
+
+  // 2) a call traveling DOWN to a new node: branch grows + pulse rides to it
+  if(inEvent && inEvent.t==='enter' && inEvent.nd.parent){
+    const nd=inEvent.nd, p=nd.parent, col=colorOf(nd);
+    const ex=p.px+(nd.px-p.px)*frac, ey=p.py+(nd.py-p.py)*frac;
+    svg.appendChild(el('line',{x1:p.px,y1:p.py,x2:ex,y2:ey,stroke:col,'stroke-width':2.2,opacity:.85}));
+    svg.appendChild(el('circle',{cx:ex,cy:ey,r:11,fill:'none',stroke:col,'stroke-width':1.5,opacity:.4}));
+    svg.appendChild(el('circle',{cx:ex,cy:ey,r:6,fill:col,opacity:.95}));
+  }
+  // a value returning UP to the caller
+  if(inEvent && inEvent.t==='exit' && inEvent.nd.parent){
+    const nd=inEvent.nd, p=nd.parent;
+    const ex=nd.px+(p.px-nd.px)*frac, ey=nd.py+(p.py-nd.py)*frac;
+    svg.appendChild(el('circle',{cx:ex,cy:ey,r:5,fill:'#c6ff4d',opacity:.85}));
+  }
+
+  // 3) nodes (with glow halo for the live stack, brightest on the active call)
+  const pulse = 1 + 0.14*Math.sin((now||0)/170);
+  walk(root,nd=>{
+    const arriving = inEvent && inEvent.t==='enter' && inEvent.nd===nd;
+    if(!settledEnter(nd) && !arriving) return;
+    const col=colorOf(nd);
+    const r  = arriving ? Math.max(5, R*frac) : R;
+    const op = arriving ? Math.min(1,frac+0.2) : 1;
+    const isActive = (nd===active) || arriving;
+
+    if(open(nd) || arriving){
+      const haloR = isActive ? R+11*pulse : R+5;
+      if(isActive) svg.appendChild(el('circle',{cx:nd.px,cy:nd.py,r:R+5,fill:col,opacity:.14}));
+      svg.appendChild(el('circle',{cx:nd.px,cy:nd.py,r:haloR,fill:'none',
+        stroke:col,'stroke-width': isActive?3:1.5, opacity: isActive?.55:.25}));
+    }
+
+    const g=el('g',{opacity:op});
+    g.appendChild(el('circle',{cx:nd.px,cy:nd.py,r,
+      fill: nd.memoHit?'#16181f':'#10131c', stroke:col,
+      'stroke-width': isActive?2.8:1.7, 'stroke-dasharray': nd.memoHit?'3 3':'0'}));
+    if(!arriving || frac>0.5){
+      const lbl=el('text',{x:nd.px,y:nd.py,fill:'#eef1f6','font-size':'13','font-weight':'700',
+        'text-anchor':'middle','dominant-baseline':'central','font-family':'JetBrains Mono','style':'pointer-events:none'});
+      lbl.textContent='f('+nd.k+')'; g.appendChild(lbl);
+    }
+    if(showVal(nd)){
+      const v=el('text',{x:nd.px,y:nd.py+R+13,fill: nd.memoHit?'#828593':'#9aa0ad',
+        'font-size':'11','text-anchor':'middle','font-family':'JetBrains Mono'});
+      v.textContent='='+nd.value+(nd.memoHit?' ⚡':''); g.appendChild(v);
+    }
+    svg.appendChild(g);
+  });
+
+  // live counter
+  let entered=0; for(let i=0;i<head;i++) if(events[i].t==='enter') entered++;
+  document.getElementById('live').innerHTML =
+    cur.done ? `<b>${cur.count}</b> total calls to compute fib(${state.n}) = <b>${cur.root.value}</b>`
+             : `calls so far: <b>${entered}</b>`;
+}
+
+// ---------- loop ----------
+function loop(now){
+  if(cur && !cur.done){
+    const v=+document.getElementById('speed').value;
+    const rate=0.04*Math.pow(1.6, v-1);   // events per frame; slow end ~1 event/sec
+    cur.headF=Math.min(cur.headF+rate, cur.events.length);
+    if(cur.headF>=cur.events.length) cur.done=true;
+  }
+  if(cur) render(now);
+  requestAnimationFrame(loop);
+}
+
+// ---------- controls ----------
+function play(){ rebuild(); cur.headF=0; cur.done=false; }
+document.getElementById('nPlus').addEventListener('click',()=>{ if(state.n<8){state.n++; syncN(); play();}});
+document.getElementById('nMinus').addEventListener('click',()=>{ if(state.n>2){state.n--; syncN(); play();}});
+function syncN(){ document.getElementById('nVal').textContent=state.n; document.getElementById('nSpan').textContent=state.n; }
+document.getElementById('mNaive').addEventListener('click',()=>setMode('naive'));
+document.getElementById('mMemo').addEventListener('click',()=>setMode('memo'));
+function setMode(m){
+  state.mode=m;
+  document.getElementById('mNaive').classList.toggle('on',m==='naive');
+  document.getElementById('mMemo').classList.toggle('on',m==='memo');
+  play();
+}
+document.getElementById('dup').addEventListener('change',e=>{ state.dup=e.target.checked; renderLegend(); });
+document.getElementById('replay').addEventListener('click',play);
+
+// ---------- boot ----------
+syncN(); play(); requestAnimationFrame(loop);
+</script>
+</body>
+</html>
