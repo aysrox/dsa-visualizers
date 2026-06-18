@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sorting, visualized — bubble · selection · insertion · merge · quicksort</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0c0d11; --card:#101117; --line:rgba(255,255,255,.08);
+    --ink:#e7e9ee; --dim:#828593;
+    --cyan:#37e0ff; --lime:#c6ff4d; --pink:#fb5b86; --green:#34d399; --amber:#ffb454; --violet:#a78bfa;
+    --bar:#2a3142;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);min-height:100vh;
+    font-family:"JetBrains Mono",ui-monospace,Menlo,monospace;
+    -webkit-font-smoothing:antialiased;padding:22px clamp(14px,3vw,40px) 46px}
+  .wrap{max-width:1150px;margin:0 auto}
+  .tag{font-size:11px;color:var(--dim);letter-spacing:.18em;text-transform:uppercase}
+  h1{font-size:clamp(20px,3.6vw,30px);font-weight:700;margin:6px 0 8px;letter-spacing:-.01em}
+  .sub{font-size:13px;color:#c2c5cf;line-height:1.7;max-width:720px}
+
+  .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:18px}
+  .seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;flex-wrap:wrap}
+  .seg button{background:#13151d;border:none;color:var(--dim);font-family:inherit;font-size:12px;
+    font-weight:700;padding:10px 14px;cursor:pointer;white-space:nowrap}
+  .seg button.on{background:var(--cyan);color:#06121a}
+  .seg button:hover:not(.on){background:#1b1e2a}
+  button.action{font-family:inherit;font-size:12px;font-weight:500;color:var(--ink);
+    background:#171922;border:1px solid var(--line);padding:10px 15px;border-radius:9px;cursor:pointer}
+  button.action:hover{border-color:rgba(255,255,255,.25);background:#1d2030}
+  button.go{color:#06121a;background:var(--cyan);border-color:var(--cyan);font-weight:700}
+  button.go:hover{filter:brightness(1.08);background:var(--cyan)}
+  .spd{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--dim);margin-left:auto}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:120px;height:2px;background:var(--line);border-radius:2px;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--cyan);cursor:pointer;box-shadow:0 0 0 4px rgba(55,224,255,.14)}
+  input[type=range]::-moz-range-thumb{width:12px;height:12px;border:none;border-radius:50%;background:var(--cyan);cursor:pointer}
+  .nrow{display:flex;align-items:center;gap:9px;font-size:11px;color:var(--dim)}
+  .stepper{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .stepper button{background:#171922;border:none;color:var(--ink);width:26px;height:26px;font-size:14px;cursor:pointer;font-family:inherit}
+  .stepper button:hover{background:#222637}
+  .stepper span{min-width:28px;text-align:center;font-weight:700;line-height:26px;font-size:12px}
+
+  .stage{margin-top:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .single .ptop{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+  .pname{font-size:14px;font-weight:700;color:var(--cyan)}
+  .stats{font-size:11px;color:var(--dim);display:flex;gap:14px}
+  .stats b{color:var(--ink)}
+  svg.viz{width:100%;height:320px;display:block;background:#090a0e;border-radius:10px}
+
+  .race{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){ .race{grid-template-columns:1fr} }
+  .rcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .rcard .ptop{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+  .rcard .pname{font-size:12.5px}
+  .rcard .stats{font-size:10.5px;gap:10px}
+  .rcard svg.viz{height:160px;border-radius:8px}
+  .crown{font-size:11px;color:var(--lime);font-weight:700;display:none}
+  .crown.show{display:inline}
+
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;font-size:11px;color:var(--dim)}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  .punch{margin-top:14px;font-size:12.5px;color:#c2c5cf;line-height:1.75;border-top:1px solid var(--line);padding-top:13px;max-width:780px}
+  .punch b{color:var(--lime)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="tag">Sorting, visualized</div>
+  <h1>Watch the algorithm, not just the answer</h1>
+  <p class="sub">Same array, same colors, every time — so you can actually compare how each algorithm thinks.
+     Pick one to study it, or race all four on an identical array.</p>
+
+  <div class="bar">
+    <div class="seg" id="modeSeg">
+      <button data-m="bubble" class="on">Bubble</button>
+      <button data-m="selection">Selection</button>
+      <button data-m="insertion">Insertion</button>
+      <button data-m="merge">Merge</button>
+      <button data-m="quick">Quick</button>
+      <button data-m="race">⚡ Race all 4</button>
+    </div>
+  </div>
+  <div class="bar">
+    <button class="action go" id="run">▶ Run</button>
+    <button class="action" id="shuffle">🔀 New array</button>
+    <div class="nrow">size
+      <div class="stepper"><button id="szMinus">–</button><span id="szVal">22</span><button id="szPlus">+</button></div>
+    </div>
+    <div class="spd"><span>slow</span><input id="speed" type="range" min="1" max="16" step="1" value="7"><span>fast</span></div>
+  </div>
+
+  <div class="stage" id="stage"></div>
+
+  <div class="legend" id="legend"></div>
+  <div class="punch" id="punch"></div>
+</div>
+
+<script>
+const SVGNS='http://www.w3.org/2000/svg';
+const COLORS={
+  default:'#2a3142', compare:'#37e0ff', swap:'#fb5b86', sorted:'#34d399',
+  pivot:'#ffb454', range:'#a78bfa', write:'#c6ff4d'
+};
+const ALGOS=['bubble','selection','insertion','merge','quick'];
+const NAMES={bubble:'Bubble Sort',selection:'Selection Sort',insertion:'Insertion Sort',merge:'Merge Sort',quick:'Quick Sort'};
+const NOTES={
+  bubble:'Repeatedly swaps neighbors that are out of order. Simple, but it crawls — O(n²).',
+  selection:'Finds the minimum remaining each pass and places it. Always O(n²), same work every time.',
+  insertion:'Builds the sorted section one item at a time, sliding new elements into place. Fast on nearly-sorted data.',
+  merge:'Splits the array down to single elements, then merges sorted halves back together. Steady O(n log n), always.',
+  quick:'Picks a pivot, partitions everything around it, then recurses. O(n log n) on average — but a bad pivot can hurt.'
+};
+
+let state={ mode:'bubble', size:22, arr:[], speed:6 };
+
+function randomArray(n){
+  const a=[]; for(let i=0;i<n;i++) a.push(8+Math.floor(Math.random()*92));
+  return a;
+}
+
+// ---------------- generators: each yields a "frame" describing what to draw ----------------
+// frame shape: { arr, roles:{index:role}, sortedUpTo?:Set, extra:{...} }
+function* bubbleGen(a){
+  a=a.slice(); const n=a.length;
+  for(let i=0;i<n-1;i++){
+    let swapped=false;
+    for(let j=0;j<n-1-i;j++){
+      yield { arr:a.slice(), roles:{[j]:'compare',[j+1]:'compare'}, sortedFrom:n-i };
+      if(a[j]>a[j+1]){
+        [a[j],a[j+1]]=[a[j+1],a[j]]; swapped=true;
+        yield { arr:a.slice(), roles:{[j]:'swap',[j+1]:'swap'}, sortedFrom:n-i };
+      }
+    }
+    if(!swapped) break;
+  }
+  yield { arr:a.slice(), roles:{}, sortedFrom:0 };
+}
+function* selectionGen(a){
+  a=a.slice(); const n=a.length;
+  for(let i=0;i<n-1;i++){
+    let min=i;
+    for(let j=i+1;j<n;j++){
+      const roles={[min]:'pivot',[j]:'compare'};
+      yield { arr:a.slice(), roles, sortedFrom:i };
+      if(a[j]<a[min]) min=j;
+    }
+    if(min!==i){
+      [a[i],a[min]]=[a[min],a[i]];
+      yield { arr:a.slice(), roles:{[i]:'swap',[min]:'swap'}, sortedFrom:i };
+    }
+  }
+  yield { arr:a.slice(), roles:{}, sortedFrom:0 };
+}
+function* insertionGen(a){
+  a=a.slice(); const n=a.length;
+  for(let i=1;i<n;i++){
+    let j=i;
+    yield { arr:a.slice(), roles:{[i]:'pivot'}, sortedFrom:n-i };
+    while(j>0 && a[j-1]>a[j]){
+      yield { arr:a.slice(), roles:{[j]:'compare',[j-1]:'compare'}, sortedFrom:n-i };
+      [a[j-1],a[j]]=[a[j],a[j-1]];
+      yield { arr:a.slice(), roles:{[j]:'swap',[j-1]:'swap'}, sortedFrom:n-i };
+      j--;
+    }
+  }
+  yield { arr:a.slice(), roles:{}, sortedFrom:0 };
+}
+function* mergeGen(a){
+  a=a.slice(); const n=a.length;
+  function rangeRoles(lo,hi,role){ const o={}; for(let x=lo;x<hi;x++) o[x]=role; return o; }
+  function* sort(lo,hi){
+    if(hi-lo<=1) return;
+    const mid=(lo+hi)>>1;
+    yield { arr:a.slice(), roles:{...rangeRoles(lo,mid,'range'), ...rangeRoles(mid,hi,'pivot')}, sortedFrom:n };
+    yield* sort(lo,mid);
+    yield* sort(mid,hi);
+    const left=a.slice(lo,mid), right=a.slice(mid,hi);
+    let i=0,j=0,k=lo;
+    while(i<left.length && j<right.length){
+      const useLeft = left[i]<=right[j];
+      a[k]= useLeft ? left[i++] : right[j++];
+      yield { arr:a.slice(), roles:{[k]:'write'}, sortedFrom:n, band:[lo,hi] };
+      k++;
+    }
+    while(i<left.length){ a[k]=left[i++]; yield { arr:a.slice(), roles:{[k]:'write'}, sortedFrom:n, band:[lo,hi] }; k++; }
+    while(j<right.length){ a[k]=right[j++]; yield { arr:a.slice(), roles:{[k]:'write'}, sortedFrom:n, band:[lo,hi] }; k++; }
+    yield { arr:a.slice(), roles:rangeRoles(lo,hi,'sorted-band'), sortedFrom:n, band:[lo,hi] };
+  }
+  yield* sort(0,n);
+  yield { arr:a.slice(), roles:{}, sortedFrom:0 };
+}
+function* quickGen(a){
+  a=a.slice(); const n=a.length;
+  function* qs(lo,hi){
+    if(lo>=hi) return;
+    const pivot=a[hi]; let p=lo;
+    for(let i=lo;i<hi;i++){
+      yield { arr:a.slice(), roles:{[hi]:'pivot',[i]:'compare'}, sortedFrom:n, band:[lo,hi] };
+      if(a[i]<pivot){
+        [a[i],a[p]]=[a[p],a[i]];
+        yield { arr:a.slice(), roles:{[hi]:'pivot',[i]:'swap',[p]:'swap'}, sortedFrom:n, band:[lo,hi] };
+        p++;
+      }
+    }
+    [a[p],a[hi]]=[a[hi],a[p]];
+    yield { arr:a.slice(), roles:{[p]:'swap',[hi]:'swap'}, sortedFrom:n, band:[lo,hi] };
+    yield { arr:a.slice(), roles:{[p]:'sorted-band'}, sortedFrom:n, band:[lo,hi] };
+    yield* qs(lo,p-1);
+    yield* qs(p+1,hi);
+  }
+  yield* qs(0,n-1);
+  yield { arr:a.slice(), roles:{}, sortedFrom:0 };
+}
+const GEN={bubble:bubbleGen, selection:selectionGen, insertion:insertionGen, merge:mergeGen, quick:quickGen};
+
+// ---------------- a "runner": pre-computes all frames + counts comparisons/writes ----------------
+function buildRun(algo, arr){
+  const frames=[]; let compares=0, writes=0;
+  let prevArr=arr.slice();
+  for(const f of GEN[algo](arr)){
+    // count: any frame whose roles include 'compare' on 2+ idx = a comparison; any value diff from prev = a write
+    const roleVals=Object.values(f.roles);
+    if(roleVals.includes('compare')) compares++;
+    for(let i=0;i<f.arr.length;i++) if(f.arr[i]!==prevArr[i]) writes++;
+    prevArr=f.arr;
+    frames.push(f);
+  }
+  return { frames, compares, writes, finalArr:frames[frames.length-1].arr };
+}
+
+// ---------------- rendering ----------------
+function el(t,a){ const e=document.createElementNS(SVGNS,t); for(const k in a) e.setAttribute(k,a[k]); return e; }
+function colorFor(role){
+  switch(role){
+    case 'compare': return COLORS.compare;
+    case 'swap': return COLORS.swap;
+    case 'pivot': return COLORS.pivot;
+    case 'range': return COLORS.range;
+    case 'write': return COLORS.write;
+    case 'sorted-band': return COLORS.sorted;
+    default: return COLORS.default;
+  }
+}
+function drawBars(svg, arr, roles, sortedFrom, vh){
+  svg.innerHTML='';
+  const n=arr.length, vw=svg.viewBox.baseVal.width||1000;
+  const gap=Math.max(1, vw*0.01/Math.max(n,1)*4);
+  const bw=(vw-gap*(n-1))/n;
+  const maxV=100;
+  const fontSize = Math.max(7, Math.min(13, bw*0.5));
+  const showLabel = bw > 9;   // hide numbers once bars get too thin to read
+  for(let i=0;i<n;i++){
+    const h=(arr[i]/maxV)*(vh-18);
+    const x=i*(bw+gap), y=vh-h;
+    let role=roles[i];
+    if(!role && sortedFrom!=null && i>=sortedFrom) role='sorted-band';
+    const fill=colorFor(role);
+    svg.appendChild(el('rect',{x,y,width:bw,height:h,rx:Math.min(3,bw/4),fill}));
+    if(showLabel){
+      const cx=x+bw/2;
+      const insideBar = h > fontSize+10;
+      const ty = insideBar ? y+fontSize+4 : y-5;
+      const labelFill = insideBar ? '#06121a' : '#c2c5cf';
+      svg.appendChild(el('text',{x:cx,y:ty,fill:labelFill,'font-size':fontSize,
+        'font-weight':'700','text-anchor':'middle','font-family':'JetBrains Mono, monospace',
+        style:'pointer-events:none'})).textContent=arr[i];
+    }
+  }
+}
+
+// ---------------- single mode ----------------
+let single=null; // { run, idx, timer-like via rAF, done }
+function setupSingle(){
+  document.getElementById('stage').innerHTML = `
+    <div class="card single">
+      <div class="ptop">
+        <span class="pname" id="sName"></span>
+        <div class="stats"><span>comparisons <b id="sComp">0</b></span><span>writes <b id="sWrite">0</b></span><span id="sStatus" style="color:var(--lime)"></span></div>
+      </div>
+      <svg class="viz" id="sViz" viewBox="0 0 1000 300" preserveAspectRatio="none"></svg>
+    </div>`;
+  document.getElementById('sName').textContent=NAMES[state.mode];
+  document.getElementById('punch').textContent=NOTES[state.mode];
+  renderLegendSingle();
+}
+function renderLegendSingle(){
+  const items=[['compare','comparing'],['swap','swap'],['pivot','pivot / current min'],
+    ['range','active range'],['write','writing back'],['sorted-band','sorted']];
+  document.getElementById('legend').innerHTML = items.map(([k,l])=>
+    `<span><i style="background:${COLORS[k]}"></i>${l}</span>`).join('');
+}
+function startSingle(){
+  setupSingle();
+  const run=buildRun(state.mode, state.arr);
+  single={ run, head:0, headF:0, done:false };
+  document.getElementById('sComp').textContent=run.compares;
+  document.getElementById('sComp').dataset.target=run.compares;
+}
+function stepSingleFrame(now){
+  if(!single) return;
+  const svg=document.getElementById('sViz');
+  if(!single.done){
+    const v=+document.getElementById('speed').value;
+    single.headF=Math.min(single.headF + 0.03*Math.pow(1.4,v-1), single.run.frames.length-1+1);
+    single.head=Math.floor(single.headF);
+    if(single.head>=single.run.frames.length){ single.head=single.run.frames.length-1; single.done=true; }
+  }
+  const f=single.run.frames[single.head];
+  drawBars(svg, f.arr, f.roles, f.sortedFrom, 300);
+  const seenComp = single.run.frames.slice(0,single.head+1).filter(fr=>Object.values(fr.roles).includes('compare')).length;
+  let seenWrite=0; let prev=state.arr;
+  for(let i=0;i<=single.head;i++){ const fr=single.run.frames[i];
+    for(let k=0;k<fr.arr.length;k++) if(fr.arr[k]!==prev[k]) seenWrite++; prev=fr.arr; }
+  document.getElementById('sComp').textContent=single.done?single.run.compares:seenComp;
+  document.getElementById('sWrite').textContent=single.done?single.run.writes:seenWrite;
+  document.getElementById('sStatus').textContent= single.done ? '✓ sorted' : '';
+}
+
+// ---------------- race mode ----------------
+let race=null;
+function setupRace(){
+  document.getElementById('stage').innerHTML = `<div class="race" id="raceGrid"></div>`;
+  const grid=document.getElementById('raceGrid');
+  ALGOS.forEach(a=>{
+    const d=document.createElement('div'); d.className='rcard';
+    d.innerHTML=`<div class="ptop">
+        <span class="pname" style="color:var(--cyan)">${NAMES[a]}</span>
+        <span class="crown" id="crown-${a}">🏆 finished</span>
+      </div>
+      <div class="stats" style="margin-bottom:8px"><span>comparisons <b id="comp-${a}">0</b></span><span>writes <b id="wr-${a}">0</b></span></div>
+      <svg class="viz" id="viz-${a}" viewBox="0 0 1000 160" preserveAspectRatio="none"></svg>`;
+    grid.appendChild(d);
+  });
+  document.getElementById('punch').textContent =
+    'Same array, four strategies. Watch which one finishes first — and notice it isn\'t always the one with fewer lines of code.';
+  renderLegendSingle();
+}
+function startRace(){
+  setupRace();
+  const runs={}; ALGOS.forEach(a=> runs[a]=buildRun(a, state.arr));
+  race={ runs, head:{}, headF:{}, done:{}, finishedOrder:[] };
+  ALGOS.forEach(a=>{ race.head[a]=0; race.headF[a]=0; race.done[a]=false; });
+}
+function stepRaceFrame(){
+  if(!race) return;
+  const v=+document.getElementById('speed').value;
+  ALGOS.forEach(a=>{
+    const run=race.runs[a];
+    if(!race.done[a]){
+      race.headF[a]=Math.min(race.headF[a]+0.03*Math.pow(1.4,v-1), run.frames.length-1);
+      race.head[a]=Math.floor(race.headF[a]);
+      if(race.head[a]>=run.frames.length-1){ race.head[a]=run.frames.length-1; race.done[a]=true; race.finishedOrder.push(a); }
+    }
+    const f=run.frames[race.head[a]];
+    drawBars(document.getElementById('viz-'+a), f.arr, f.roles, f.sortedFrom, 160);
+    let seenComp=0, seenWrite=0, prev=state.arr;
+    for(let i=0;i<=race.head[a];i++){ const fr=run.frames[i];
+      if(Object.values(fr.roles).includes('compare')) seenComp++;
+      for(let k=0;k<fr.arr.length;k++) if(fr.arr[k]!==prev[k]) seenWrite++; prev=fr.arr; }
+    document.getElementById('comp-'+a).textContent = race.done[a]?run.compares:seenComp;
+    document.getElementById('wr-'+a).textContent = race.done[a]?run.writes:seenWrite;
+    document.getElementById('crown-'+a).classList.toggle('show', race.done[a] && race.finishedOrder[0]===a);
+  });
+}
+
+// ---------------- master loop ----------------
+function loop(now){
+  if(state.mode==='race') stepRaceFrame();
+  else stepSingleFrame(now);
+  requestAnimationFrame(loop);
+}
+
+// ---------------- controls ----------------
+function runCurrent(){
+  if(state.mode==='race') startRace();
+  else startSingle();
+}
+document.querySelectorAll('#modeSeg button').forEach(b=>b.addEventListener('click',e=>{
+  document.querySelectorAll('#modeSeg button').forEach(x=>x.classList.remove('on'));
+  e.target.classList.add('on');
+  state.mode=e.target.dataset.m;
+  runCurrent();
+}));
+document.getElementById('run').addEventListener('click', runCurrent);
+document.getElementById('shuffle').addEventListener('click', ()=>{ state.arr=randomArray(state.size); runCurrent(); });
+document.getElementById('szPlus').addEventListener('click', ()=>{ if(state.size<60){ state.size+=2; document.getElementById('szVal').textContent=state.size; state.arr=randomArray(state.size); runCurrent(); }});
+document.getElementById('szMinus').addEventListener('click', ()=>{ if(state.size>6){ state.size-=2; document.getElementById('szVal').textContent=state.size; state.arr=randomArray(state.size); runCurrent(); }});
+
+// ---------------- boot ----------------
+state.arr=randomArray(state.size);
+runCurrent();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
